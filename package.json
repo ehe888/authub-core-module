@@ -1,0 +1,48 @@
+{
+  "name": "authub-core-module",
+  "version": "0.0.1",
+  "description": "Authub core module work for expressjs",
+  "main": "./lib/index.js",
+  "scripts": {
+    "pretest": "npm install",
+    "test": "mocha --require should --reporter spec --check-leaks"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ehe888/authub-core-module.git"
+  },
+  "keywords": [
+    "oauth2.0",
+    "expressjs",
+    "module"
+  ],
+  "author": "eric.leihe@gmail.com",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/ehe888/authub-core-module/issues"
+  },
+  "homepage": "https://github.com/ehe888/authub-core-module#readme",
+  "dependencies": {
+    "assert": "^1.3.0",
+    "bcrypt": "^0.8.5",
+    "bcrypt-as-promised": "^1.1.0",
+    "bluebird": "^3.3.4",
+    "debug": "^2.2.0",
+    "jsonwebtoken": "^5.7.0",
+    "lodash": "^4.7.0",
+    "log4js": "^0.6.33",
+    "mongoose": "^4.4.10",
+    "url-join": "^1.0.0"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "database-cleaner": "^0.13.0",
+    "expect": "^1.16.0",
+    "express": "^4.13.4",
+    "mocha": "^2.4.5",
+    "mongodb": "^2.1.14",
+    "shortid": "^2.2.6",
+    "should": "^8.3.0",
+    "supertest": "^1.2.0"
+  }
+}
