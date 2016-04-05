@@ -57,7 +57,15 @@ describe("Identity", function(){
   it("should create a account", function(done){
     request(app)
       .post('/identity/register')
-      .send({ name: accountName })
+      .send({
+          name: accountName,
+          username: 'admin',
+          password: 'abc123456',
+          mobile: '13764211365',
+          email: 'lei.he@aivics.com',
+          lastName: 'HE',
+          firstName: 'LEI'
+      })
       .expect(201)
       .expect(function(res){
         if( res.body.success !== true ) return "request_failed";
@@ -120,6 +128,29 @@ describe("Identity", function(){
         if (err) {
           return done(err);
         }
+        done();
+      });
+  });
+
+  it("should success to get admin token using password granty type", function(done){
+    var data = {
+      username: 'ehe888',
+      password: '123456',
+      grant_type: 'password',
+      user_type: 'admin'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+
         done();
       });
   });
