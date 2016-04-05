@@ -63,8 +63,8 @@ describe("Identity", function(){
           name: accountName,
           username: 'admin',
           password: 'abc123456',
-          mobile: '13764211365',
-          email: 'lei.he@aivics.com',
+          mobile: '18912326036',
+          email: 'lei.he@fastccm.com',
           lastName: 'HE',
           firstName: 'LEI'
       })
