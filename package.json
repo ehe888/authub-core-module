@@ -1,6 +1,6 @@
 {
   "name": "authub-core-module",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Authub core module work for expressjs",
   "main": "./lib/index.js",
   "scripts": {
@@ -33,6 +33,7 @@
     "lodash": "^4.7.0",
     "log4js": "^0.6.33",
     "mongoose": "^4.4.10",
+    "randomstring": "^1.1.4",
     "url-join": "^1.0.0"
   },
   "devDependencies": {
