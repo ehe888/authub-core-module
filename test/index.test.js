@@ -54,6 +54,8 @@ describe("Identity", function(){
 
   });
 
+  let jwtToken;
+
   it("should create a account", function(done){
     request(app)
       .post('/identity/register')
@@ -92,24 +94,6 @@ describe("Identity", function(){
       });
   });
 
-  it("should success to create client when account name is valid", function(done){
-    request(app)
-      .post('/identity/clients')
-      .set('X-Authub-Account', accountName)
-      .expect(201)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        console.log(res.body);
-
-        clientId = res.body.data._id;
-        clientSecret = res.body.data.clientSecretClearText;
-
-        done();
-      });
-  });
-
   it("should success to create administrator when account name is valid", function(done){
     var data = {
       username: 'ehe888',
@@ -132,6 +116,7 @@ describe("Identity", function(){
       });
   });
 
+
   it("should success to get admin token using password granty type", function(done){
     var data = {
       username: 'ehe888',
@@ -151,9 +136,35 @@ describe("Identity", function(){
 
         console.log(res.body);
 
+        jwtToken = res.body;
+
         done();
       });
   });
+
+
+  it("should success to create client when account name is valid", function(done){
+    request(app)
+      .post('/identity/clients')
+      .set('X-Authub-Account', accountName)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .expect(201)
+      .end(function(err, res){
+        if (err) {
+          console.log(err);
+          return done(err);
+        }
+        console.log(res.body);
+
+        clientId = res.body.data._id;
+        clientSecret = res.body.data.clientSecretClearText;
+
+        done();
+      });
+  });
+
+
+
 
 
   it("should success to create user when account name is valid", function(done){
@@ -169,6 +180,7 @@ describe("Identity", function(){
     request(app)
       .post('/identity/users')
       .set('X-Authub-Account', accountName)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
       .send(data)
       .expect(201)
       .end(function(err, res){
@@ -188,6 +200,7 @@ describe("Identity", function(){
     request(app)
       .post('/identity/oauth2/token')
       .set('X-Authub-Account', accountName)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
       .send(data)
       .expect(200)
       .end(function(err, res){

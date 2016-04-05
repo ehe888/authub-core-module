@@ -1,6 +1,6 @@
 {
   "name": "authub-core-module",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Authub core module work for expressjs",
   "main": "./lib/index.js",
   "scripts": {
@@ -24,6 +24,7 @@
   "homepage": "https://github.com/ehe888/authub-core-module#readme",
   "dependencies": {
     "assert": "^1.3.0",
+    "authub-core-filter": "0.0.2",
     "bcrypt": "^0.8.5",
     "bcrypt-as-promised": "^1.1.0",
     "bluebird": "^3.3.4",
