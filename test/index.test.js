@@ -7,7 +7,8 @@ let request = require('supertest')
   , should  = require('chai').should
   , expect  = require('chai').expect
   , app     = express()
-  , shortid = require('shortid');
+  , shortid = require('shortid')
+  , jwt = require("jsonwebtoken");
 
 /**
  * Clean up databases
@@ -55,6 +56,8 @@ describe("OAuth2 Identity Service", function(){
   });
 
   let jwtToken;
+  let jwtATSecret;
+  let jwtAlgorithm;
 
   it("should create an account and its owner administrator", function(done){
     request(app)
@@ -72,6 +75,9 @@ describe("OAuth2 Identity Service", function(){
       .expect(function(res){
         if( res.body.success !== true ) return "request_failed";
         if( res.body.data.name !== accountName ) return "incorrect_account_name";
+        jwtATSecret = res.body.data.accessToken.secret;
+        jwtAlgorithm = res.body.data.accessToken.algorithm;
+
       })
       .end(function(err, res){
         if (err) {
@@ -210,6 +216,12 @@ describe("OAuth2 Identity Service", function(){
 
         done();
       });
+  });
+
+  it("should contain expires_in field in access_token", function(done){
+    var token = jwt.verify(jwtToken.access_token, jwtATSecret, { algorithms: [ jwtAlgorithm ] });
+    expect(token.expires_in).to.be.a('Number');
+    done();
   });
 
 

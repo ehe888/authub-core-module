@@ -1,6 +1,6 @@
 {
   "name": "authub-core-module",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Authub core module work for expressjs",
   "main": "./lib/index.js",
   "scripts": {
