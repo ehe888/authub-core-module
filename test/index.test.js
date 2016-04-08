@@ -220,7 +220,7 @@ describe("OAuth2 Identity Service", function(){
 
   it("should contain expires_in field in access_token", function(done){
     var token = jwt.verify(jwtToken.access_token, jwtATSecret, { algorithms: [ jwtAlgorithm ] });
-    expect(token.expires_in).to.be.a('Number');
+    expect(token.exp).to.be.a('Number');
     done();
   });
 
@@ -294,9 +294,6 @@ describe("OAuth2 Identity Service", function(){
       });
   });
 
-
-
-
   it("should success to create client when account name is valid", function(done){
     request(app)
       .post('/identity/clients')
@@ -319,7 +316,27 @@ describe("OAuth2 Identity Service", function(){
 
 
 
+  it("should success to get token using client_credential granty type", function(done){
+    var data = {
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credential'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
 
+        console.log(res.body);
+
+        done();
+      });
+  });
 
   it("should success to create user when account name is valid", function(done){
     var data = {
@@ -344,8 +361,17 @@ describe("OAuth2 Identity Service", function(){
         done();
       });
   });
+});
 
-  it("should success to get token using password granty type", function(done){
+
+describe("user creation and activation", function(){
+  let jwtToken;
+  let jwtATSecret;
+  let jwtAlgorithm;
+
+
+
+  it("should failed to get token using password granty type when not activated", function(done){
     var data = {
       username: 'ehe888',
       password: '123456',
@@ -355,37 +381,85 @@ describe("OAuth2 Identity Service", function(){
       .post('/identity/oauth2/token')
       .set('X-Authub-Account', accountName)
       .send(data)
-      .expect(200)
+      .expect(403)
       .end(function(err, res){
         if (err) {
           return done(err);
         }
 
-        console.log(res.body);
-
         done();
       });
   });
 
-  it("should success to get token using client_credential granty type", function(done){
-    var data = {
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'client_credential'
-    }
+  process.env.NODE_ENV = 'local-unit-test';
+  var code;
+  var vericode_token;
+  var data = { identity: '13764211365' , veri_type: 'mobile', target_url: "/users/activate" };
+
+  it("should success to get veri code", function(done){
     request(app)
-      .post('/identity/oauth2/token')
+      .post('/identity/vericode/code')
+      .send( data )
+      .expect(201)
+      .expect(function(res){
+
+        code = res.body.veri_code;
+        console.log("code: ", code);
+
+        if( res.body.success !== true ) throw new Error('invalid_response');
+        if( process.env.NODE_ENV === 'local-unit-test' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+      })
+      .end(done);
+  });
+
+  it('should return vericode token', function(done){
+    var data = { identity: '13764211365', veri_code: code };
+    request(app)
+      .post('/identity/vericode/validate')
+      .send( data )
+      .expect(201)
+      .end(function(err, res){
+        if (err) return done(err);
+        vericode_token = res.body.vericode_token;
+        console.log(vericode_token);
+        done();
+      });
+  });
+
+  it("should success to activate user with vericode_token", function(done){
+    request(app)
+      .get('/identity/users/activate')
       .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(200)
+      .send({ vericode_token: vericode_token })
+      .expect(200, { success: true })
       .end(function(err, res){
         if (err) {
           return done(err);
         }
-
         console.log(res.body);
-
         done();
       });
   });
-});
+
+  // it("should success to get token using password granty type when activated", function(done){
+  //   var data = {
+  //     username: 'ehe888',
+  //     password: '123456',
+  //     grant_type: 'password'
+  //   }
+  //   request(app)
+  //     .post('/identity/oauth2/token')
+  //     .set('X-Authub-Account', accountName)
+  //     .send(data)
+  //     .expect(200)
+  //     .end(function(err, res){
+  //       if (err) {
+  //         return done(err);
+  //       }
+  //
+  //       console.log(res.body);
+  //
+  //       done();
+  //     });
+  // });
+})
