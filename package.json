@@ -1,6 +1,6 @@
 {
   "name": "aivics-authub-core-module",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Authub core module work for expressjs",
   "main": "./lib/index.js",
   "scripts": {

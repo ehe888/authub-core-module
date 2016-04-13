@@ -333,12 +333,13 @@ describe("OAuth2 Identity Service", function(){
         }
 
         console.log(res.body);
+        jwtToken = res.body;
 
         done();
       });
   });
 
-  it("should success to create user when account name is valid", function(done){
+  it("should success to create user use client token when account name is valid", function(done){
     var data = {
       username: 'ehe888',
       password: '123456',
