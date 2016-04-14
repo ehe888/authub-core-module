@@ -387,7 +387,6 @@ describe("user creation and activation", function(){
         if (err) {
           return done(err);
         }
-
         done();
       });
   });
