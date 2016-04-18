@@ -52,7 +52,7 @@ describe("OAuth2 Identity Service", function(){
   app.use("/identity", identity);
 
   require("../lib")(identity, {
-
+    mongodb: { db: "authub_master" }
   });
 
   let jwtToken;
