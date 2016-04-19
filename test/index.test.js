@@ -24,6 +24,20 @@ let accountName = "test_account";
 let clientId = "";
 let clientSecret = "";
 
+app.use(cookieParser());
+app.use(bodyParser());
+
+let identity = express();
+app.use("/identity", identity);
+
+require("../lib")(identity, {
+  mongodb: { db: "authub_master" }
+});
+
+let jwtToken;
+let jwtATSecret;
+let jwtAlgorithm;
+
 describe("OAuth2 Identity Service", function(){
   before(function(done){
     console.log("before all tests - clean up master db");
@@ -41,23 +55,9 @@ describe("OAuth2 Identity Service", function(){
         });
       });
     });
-
-
   });
 
-  app.use(cookieParser());
-  app.use(bodyParser());
 
-  let identity = express();
-  app.use("/identity", identity);
-
-  require("../lib")(identity, {
-    mongodb: { db: "authub_master" }
-  });
-
-  let jwtToken;
-  let jwtATSecret;
-  let jwtAlgorithm;
 
   it("should create an account and its owner administrator", function(done){
     request(app)
@@ -191,7 +191,9 @@ describe("OAuth2 Identity Service", function(){
         done();
       });
   });
+});
 
+describe("Token handler of Administrator", function(){
 
   it("should success to get administrator token using password grant type when user is activated!", function(done){
     var data = {
@@ -294,6 +296,32 @@ describe("OAuth2 Identity Service", function(){
       });
   });
 
+  it("should success to get new token with refresh_token granty type", function(done){
+    var data = {
+      refresh_token: jwtToken.refresh_token,
+      grant_type: 'refresh_token'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+
+        jwtToken = res.body;
+
+        done();
+      });
+  });
+});
+
+
+describe("Client Handler", function(){
   it("should success to create client when account name is valid", function(done){
     request(app)
       .post('/identity/clients')
@@ -314,8 +342,6 @@ describe("OAuth2 Identity Service", function(){
       });
   });
 
-
-
   it("should success to get token using client_credential granty type", function(done){
     var data = {
       client_id: clientId,
@@ -333,6 +359,29 @@ describe("OAuth2 Identity Service", function(){
         }
 
         console.log(res.body);
+        jwtToken = res.body;
+
+        done();
+      });
+  });
+
+  it("should success to get new token with refresh_token granty type", function(done){
+    var data = {
+      refresh_token: jwtToken.refresh_token,
+      grant_type: 'refresh_token'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+
         jwtToken = res.body;
 
         done();
@@ -366,11 +415,6 @@ describe("OAuth2 Identity Service", function(){
 
 
 describe("user creation and activation", function(){
-  let jwtToken;
-  let jwtATSecret;
-  let jwtAlgorithm;
-
-
 
   it("should failed to get token using password granty type when not activated", function(done){
     var data = {
@@ -441,25 +485,48 @@ describe("user creation and activation", function(){
       });
   });
 
-  // it("should success to get token using password granty type when activated", function(done){
-  //   var data = {
-  //     username: 'ehe888',
-  //     password: '123456',
-  //     grant_type: 'password'
-  //   }
-  //   request(app)
-  //     .post('/identity/oauth2/token')
-  //     .set('X-Authub-Account', accountName)
-  //     .send(data)
-  //     .expect(200)
-  //     .end(function(err, res){
-  //       if (err) {
-  //         return done(err);
-  //       }
-  //
-  //       console.log(res.body);
-  //
-  //       done();
-  //     });
-  // });
+  it("should success to get token using password granty type when user is activated", function(done){
+    var data = {
+      username: 'ehe888',
+      password: '123456',
+      grant_type: 'password'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+        jwtToken = res.body;
+        done();
+      });
+  });
+
+  it("should success to get new token with refresh_token granty type", function(done){
+    var data = {
+      refresh_token: jwtToken.refresh_token,
+      grant_type: 'refresh_token'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', accountName)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+
+        jwtToken = res.body;
+
+        done();
+      });
+  });
 })
