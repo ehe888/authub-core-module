@@ -38,6 +38,8 @@ let jwtToken;
 let jwtATSecret;
 let jwtAlgorithm;
 
+let dbs = require('../lib/models/db')({ server: "mongodb://localhost/" });
+
 describe("OAuth2 Identity Service", function(){
   before(function(done){
     console.log("before all tests - clean up master db");
@@ -318,6 +320,25 @@ describe("Token handler of Administrator", function(){
         done();
       });
   });
+
+  it("should success to create User", function(done){
+    var data = {
+      username: 'ehe8888',
+      password: '123456',
+      mobile: '13764211365',
+      email: 'lei.he@aivics.com',
+      staff: 'S001',
+      firstName: 'Lei',
+      lastName: 'He'
+    }
+    request(app)
+      .post('/identity/users')
+      .set('X-Authub-Account', accountName)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .send(data)
+      .expect(201)
+      .end(done);
+  });
 });
 
 
@@ -387,38 +408,13 @@ describe("Client Handler", function(){
         done();
       });
   });
-
-  it("should success to create user use client token when account name is valid", function(done){
-    var data = {
-      username: 'ehe888',
-      password: '123456',
-      mobile: '13764211365',
-      email: 'lei.he@aivics.com',
-      staff: 'A0001', //Staff ID submitted from business system must be unique
-      firstName: 'Lei',
-      lastName: 'He'
-    }
-    request(app)
-      .post('/identity/users')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
-      .expect(201)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
 });
 
 
-describe("user creation and activation", function(){
-
+describe("Users API", function(){
   it("should failed to get token using password granty type when not activated", function(done){
     var data = {
-      username: 'ehe888',
+      username: 'ehe8888',
       password: '123456',
       grant_type: 'password'
     }
@@ -476,18 +472,12 @@ describe("user creation and activation", function(){
       .set('X-Authub-Account', accountName)
       .send({ vericode_token: vericode_token })
       .expect(200, { success: true })
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        console.log(res.body);
-        done();
-      });
+      .end(done);
   });
 
   it("should success to get token using password granty type when user is activated", function(done){
     var data = {
-      username: 'ehe888',
+      username: 'ehe8888',
       password: '123456',
       grant_type: 'password'
     }
@@ -501,7 +491,6 @@ describe("user creation and activation", function(){
           return done(err);
         }
 
-        console.log(res.body);
         jwtToken = res.body;
         done();
       });
@@ -526,6 +515,40 @@ describe("user creation and activation", function(){
 
         jwtToken = res.body;
 
+        done();
+      });
+  });
+
+  it("should success to reset password", function(done){
+    var data = {
+      new_password: '12345678',
+      old_password: '123456'
+    }
+    request(app)
+      .post('/identity/users/reset_password')
+      .set('X-Authub-Account', accountName)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .send(data)
+      .expect(200)
+      .expect(function(res){
+        dbs.connect(accountName, function(err, db){
+          if(err){
+            console.error(err);
+            return "error_in_connect_to_db";
+          }
+
+          db.model('User')
+            .getAuthenticated("ehe8888", "12345678", function(err, user){
+              expect(err).to.be.null;
+              expect(user).to.be.exist;
+              return;
+            });
+        });
+      })
+      .end(function(err, res){
+        if (err) {
+          console.log(err);
+        }
         done();
       });
   });
