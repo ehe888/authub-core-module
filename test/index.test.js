@@ -8,6 +8,7 @@ let request = require('supertest')
   , expect  = require('chai').expect
   , app     = express()
   , shortid = require('shortid')
+  , randomstring 	= require("randomstring")
   , jwt = require("jsonwebtoken");
 
 /**
@@ -20,7 +21,7 @@ var dbHost = process.env.MONGO_HOST || 'localhost';
 
 
 
-let accountName = "test_account";
+let accountName = "aivics";
 let clientId = "";
 let clientSecret = "";
 
@@ -38,13 +39,25 @@ let jwtToken;
 let jwtATSecret;
 let jwtAlgorithm;
 
-let dbs = require('../lib/models/db')({ server: "mongodb://localhost/" });
+var dbOptions = {
+    server: "mongodb://localhost/",
+    masterDb: "authub_master"
+}
 
-describe("OAuth2 Identity Service", function(){
+let dbs = require('../lib/models')(dbOptions);
+
+
+var masterAccount;
+var masterClient = {
+  secret: randomstring.generate(32)
+}
+
+describe("OAuth2 core", function(){
   before(function(done){
     console.log("before all tests - clean up master db");
 
     connect('mongodb://localhost/authub_master', function(err, db) {
+
       databaseCleaner.clean(db, function() {
         console.log('done - clean');
         db.close();
@@ -59,497 +72,290 @@ describe("OAuth2 Identity Service", function(){
     });
   });
 
+  /**
+   * 系统初始化时需要执行的一次性操作, 系统初始化后有一个 MasterDB，一个MasterClient
+   * MasterClient可以进行后续的注册帐号等操作
+   */
+  it("成功创建Master Account", function(done){
+    dbs.connectToMaster(function(err, db){
+      return db.model("Account").create({
+        name: dbOptions.masterDb,
+        username: 'admin',
+        password: 'abc123456',
+        mobile: '13764211365',
+        email: 'lei.he@fastccm.com',
+        fullname: "上海希希麦科技有限公司",
+        lastName: "何",
+        accessToken: {
+          secret: randomstring.generate(32)
+        },
+        refreshToken: {
+          secret: randomstring.generate(64)
+        }
+      })
+      .then(function(account){
+        expect(account).to.exist;
+        expect(account.name).to.equal(dbOptions.masterDb);
+        masterAccount = account;
+        done();
+      })
+      .catch(function(err){
+        console.error(err);
+        return done(err);
+      })
+    })
+  })
+
+  it("不能重复创建Master Account，名称必须唯一", function(done){
+    dbs.connectToMaster(function(err, db){
+      return db.model("Account").create({
+        name: dbOptions.masterDb,
+        username: 'admin',
+        password: 'abc123456',
+        mobile: '13764211365',
+        email: 'lei.he@fastccm.com',
+        fullname: "上海希希麦科技有限公司",
+        lastName: "何",
+        accessToken: {
+          secret: randomstring.generate(32)
+        },
+        refreshToken: {
+          secret: randomstring.generate(64)
+        }
+      })
+      .then(function(account){
+
+      })
+      .catch(function(err){
+        console.error(err);
+        expect(err).to.exist;
+        done();
+      })
+    })
+  })
+
+  it("成功创建一个Master Client", function(done){
+    dbs.connectToMaster(function(err, db){
+      return db.model("Client").create({
+        name: "MasterDB Client"
+        ,secret: masterClient.secret
+        ,account: masterAccount
+        ,scope: [ 'register' ]
+      })
+      .then(function(client){
+        expect(client).to.exist;
+        masterClient.id = client._id
+        done();
+      })
+      .catch(function(err){
+        console.error(err);
+        return done(err);
+      })
+    })
+  })
+
+  it("验证Master Client的ID和密码", function(done){
+    dbs.connectToMaster(function(err, db){
+      return db.model("Client").findOne({
+        _id: masterClient.id
+      })
+      .then(function(client){
+        return client.compareClientSecrectAsync(masterClient.secret);
+      })
+      .then(function(isMatch){
+        expect(isMatch).to.be.true;
+        done();
+      })
+      .catch(function(err){
+        console.error(err);
+        return done(err);
+      })
+    })
+  })
+});
 
 
-  it("should create an account and its owner administrator", function(done){
+describe("Client授权体系-WEB API层", function(){
+  var jwtToken;
+
+  it("should success to get token using client_credential granty type", function(done){
+    var data = {
+      client_id: masterClient.id,
+      client_secret: masterClient.secret,
+      grant_type: 'client_credential'
+    }
+    request(app)
+      .post('/identity/oauth2/token')
+      .set('X-Authub-Account', masterAccount.name)
+      .send(data)
+      .expect(200)
+      .end(function(err, res){
+        if (err) {
+          return done(err);
+        }
+
+        console.log(res.body);
+        jwtToken = res.body;
+
+        done();
+      });
+  });
+
+  it("应该成功注册一个账号", function(done){
     request(app)
       .post('/identity/register')
+      .set('X-Authub-Account', masterAccount.name)
+      .set("Authorization", "Bearer " + jwtToken.access_token )
       .send({
-          name: accountName,
-          username: 'admin',
+          name: "aivics",
+          fullname: "猎户座网络科技有限公司",
+          username: 'aivics_admin',
           password: 'abc123456',
-          mobile: '18912326036',
-          email: 'lei.he@fastccm.com',
+          mobile: '18621661799',
+          email: 'lei.he@aivics.com',
           lastName: 'HE',
           firstName: 'LEI'
       })
       .expect(201)
       .expect(function(res){
         if( res.body.success !== true ) return "request_failed";
-        if( res.body.data.name !== accountName ) return "incorrect_account_name";
-        jwtATSecret = res.body.data.accessToken.secret;
-        jwtAlgorithm = res.body.data.accessToken.algorithm;
-
-      })
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  it("should get 500 error if account name is invalid", function(done){
-    request(app)
-      .get('/identity')
-      .set('X-Authub-Account', 'invalid_account')
-      .expect(500)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  it("should failed to get administrator token using password granty type when user is not activated!", function(done){
-    var data = {
-      username: 'admin',
-      password: 'abc123456',
-      grant_type: 'password',
-      user_type: 'admin'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(403)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-
-        //jwtToken = res.body;
-
-        done();
-      });
-  });
-
-  it("should failed to activate administrator without vericode_token", function(done){
-    request(app)
-      .get('/identity/administrators/activate')
-      .set('X-Authub-Account', accountName)
-      .expect(403)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        console.log(res.body);
-        done();
-      });
-  });
-
-  process.env.NODE_ENV = 'local-unit-test';
-  var code;
-  var vericode_token;
-  var data = { identity: 'lei.he@fastccm.com' , veri_type: 'email', target_url: "/administrators/activate" };
-
-  it("should success to get veri code", function(done){
-    request(app)
-      .post('/identity/vericode/code')
-      .send( data )
-      .expect(201)
-      .expect(function(res){
-
-        code = res.body.veri_code;
-        console.log("code: ", code);
-
-        if( res.body.success !== true ) throw new Error('invalid_response');
-        if( process.env.NODE_ENV === 'local-unit-test' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+        if( res.body.name !== "aivics" ) return "incorrect_account_name";
       })
       .end(done);
-  });
+  })
 
-  it('should return token', function(done){
-
-    console.log(identity + " & " + code);
-
-    var data = { identity: 'lei.he@fastccm.com', veri_code: code };
+  it("应该成功通过新注册的账号的Admin用户名和密码换取AccessToken", function(done){
     request(app)
-      .post('/identity/vericode/validate')
-      .send( data )
-      .expect(201)
-      .end(function(err, res){
-        if (err) return done(err);
-        vericode_token = res.body.vericode_token;
-        console.log(vericode_token);
-        done();
-      });
-  });
-
-  it("should success to activate administrator with vericode_token", function(done){
-    request(app)
-      .get('/identity/administrators/activate')
-      .set('X-Authub-Account', accountName)
-      .send({ vericode_token: vericode_token })
-      .expect(200, { success: true })
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        console.log(res.body);
-        done();
-      });
-  });
-});
-
-describe("Token handler of Administrator", function(){
-
-  it("should success to get administrator token using password grant type when user is activated!", function(done){
-    var data = {
-      username: 'admin',
-      password: 'abc123456',
-      grant_type: 'password',
-      user_type: 'admin'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
+      .post('/identity/oauth2admin/token')
+      .set('X-Authub-Account', "aivics")
+      .send({
+          username: 'aivics_admin',
+          password: 'abc123456',
+          grant_type: 'password'
+      })
       .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-
+      .expect(function(res){
+        expect(res.body.access_token).to.exist;
         jwtToken = res.body;
+      })
+      .end(done);
+  })
 
-        done();
-      });
-  });
-
-  it("should contain expires_in field in access_token", function(done){
-    var token = jwt.verify(jwtToken.access_token, jwtATSecret, { algorithms: [ jwtAlgorithm ] });
-    expect(token.exp).to.be.a('Number');
-    done();
-  });
-
-
-  it("should success to create administrator when account name is valid", function(done){
-    var data = {
-      username: 'ehe888',
-      password: '123456',
-      mobile: '13764211365',
-      email: 'lei.he@aivics.com',
-      firstName: 'Lei',
-      lastName: 'He'
-    }
+  it("通过RefreshToken换取新的AccessToken", function(done){
     request(app)
-      .post('/identity/administrators')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
-      .expect(201)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  it("should failed to create administrator when username is duplicated", function(done){
-    var data = {
-      username: 'ehe888',
-      password: '123456',
-      mobile: '13764211365',
-      email: 'lei.he@aivics.com',
-      firstName: 'Lei',
-      lastName: 'He'
-    }
-    request(app)
-      .post('/identity/administrators')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
-      .expect(500)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  it("should failed to create administrator when email is duplicated", function(done){
-    var data = {
-      username: 'ehe8888',
-      password: '123456',
-      mobile: '137642113658',
-      email: 'lei.he@aivics.com',
-      firstName: 'Lei',
-      lastName: 'He'
-    }
-    request(app)
-      .post('/identity/administrators')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
-      .expect(500)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  it("should success to get new token with refresh_token granty type", function(done){
-    var data = {
-      refresh_token: jwtToken.refresh_token,
-      grant_type: 'refresh_token'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
+      .post('/identity/oauth2admin/token')
+      .set('X-Authub-Account', "aivics")
+      .send({
+        refresh_token: jwtToken.refresh_token,
+        grant_type: 'refresh_token'
+      })
       .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-
+      .expect(function(res){
+        expect(res.body.access_token).to.exist;
         jwtToken = res.body;
+      })
+      .end(done);
+  })
 
-        done();
-      });
-  });
+  it("Account名称不匹配，则不能通过RefreshToken换取新的AccessToken", function(done){
+    request(app)
+      .post('/identity/oauth2admin/token')
+      .set('X-Authub-Account', "authub_master")
+      .send({
+        refresh_token: jwtToken.refresh_token,
+        grant_type: 'refresh_token'
+      })
+      .expect(403)
+      .end(done);
+  })
 
-  it("should success to create User", function(done){
-    var data = {
-      username: 'ehe8888',
-      password: '123456',
-      mobile: '13764211365',
-      email: 'lei.he@aivics.com',
-      staff: 'S001',
-      firstName: 'Lei',
-      lastName: 'He'
-    }
+  it("通过Admin账号可以创建新用户", function(done){
     request(app)
       .post('/identity/users')
-      .set('X-Authub-Account', accountName)
+      .set('X-Authub-Account', "aivics")
       .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
-      .expect(201)
-      .end(done);
-  });
-});
-
-
-describe("Client Handler", function(){
-  it("should success to create client when account name is valid", function(done){
-    request(app)
-      .post('/identity/clients')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .expect(201)
-      .end(function(err, res){
-        if (err) {
-          console.log(err);
-          return done(err);
-        }
-        console.log(res.body);
-
-        clientId = res.body.data._id;
-        clientSecret = res.body.data.clientSecretClearText;
-
-        done();
-      });
-  });
-
-  it("should success to get token using client_credential granty type", function(done){
-    var data = {
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: 'client_credential'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-        jwtToken = res.body;
-
-        done();
-      });
-  });
-
-  it("should success to get new token with refresh_token granty type", function(done){
-    var data = {
-      refresh_token: jwtToken.refresh_token,
-      grant_type: 'refresh_token'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-
-        jwtToken = res.body;
-
-        done();
-      });
-  });
-});
-
-
-describe("Users API", function(){
-  it("should failed to get token using password granty type when not activated", function(done){
-    var data = {
-      username: 'ehe8888',
-      password: '123456',
-      grant_type: 'password'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(403)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-        done();
-      });
-  });
-
-  process.env.NODE_ENV = 'local-unit-test';
-  var code;
-  var vericode_token;
-  var data = { identity: '13764211365' , veri_type: 'mobile', target_url: "/users/activate" };
-
-  it("should success to get veri code", function(done){
-    request(app)
-      .post('/identity/vericode/code')
-      .send( data )
+      .send({
+        username: 'ehe8888',
+        password: '123456',
+        mobile: '13764211365',
+        email: 'lei.he@aivics.com',
+        staff: 'S001',
+        firstName: 'Lei',
+        lastName: 'He',
+        activated: true
+      })
       .expect(201)
       .expect(function(res){
-
-        code = res.body.veri_code;
-        console.log("code: ", code);
-
-        if( res.body.success !== true ) throw new Error('invalid_response');
-        if( process.env.NODE_ENV === 'local-unit-test' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+        expect(res.body.data.username).to.equal("ehe8888")
       })
       .end(done);
-  });
+  })
 
-  it('should return vericode token', function(done){
-    var data = { identity: '13764211365', veri_code: code };
-    request(app)
-      .post('/identity/vericode/validate')
-      .send( data )
-      .expect(201)
-      .end(function(err, res){
-        if (err) return done(err);
-        vericode_token = res.body.vericode_token;
-        console.log(vericode_token);
-        done();
-      });
-  });
 
-  it("should success to activate user with vericode_token", function(done){
-    request(app)
-      .get('/identity/users/activate')
-      .set('X-Authub-Account', accountName)
-      .send({ vericode_token: vericode_token })
-      .expect(200, { success: true })
-      .end(done);
-  });
 
-  it("should success to get token using password granty type when user is activated", function(done){
-    var data = {
-      username: 'ehe8888',
-      password: '123456',
-      grant_type: 'password'
-    }
+
+  it("通过新用户的用户名和密码可以等到用户的AccessToken", function(done){
     request(app)
       .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        jwtToken = res.body;
-        done();
-      });
-  });
-
-  it("should success to get new token with refresh_token granty type", function(done){
-    var data = {
-      refresh_token: jwtToken.refresh_token,
-      grant_type: 'refresh_token'
-    }
-    request(app)
-      .post('/identity/oauth2/token')
-      .set('X-Authub-Account', accountName)
-      .send(data)
-      .expect(200)
-      .end(function(err, res){
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
-
-        jwtToken = res.body;
-
-        done();
-      });
-  });
-
-  it("should success to reset password", function(done){
-    var data = {
-      new_password: '12345678',
-      old_password: '123456'
-    }
-    request(app)
-      .post('/identity/users/reset_password')
-      .set('X-Authub-Account', accountName)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
-      .send(data)
+      .set('X-Authub-Account', "aivics")
+      .send({
+          username: 'ehe8888',
+          password: '123456',
+          grant_type: 'password'
+      })
       .expect(200)
       .expect(function(res){
-        dbs.connect(accountName, function(err, db){
-          if(err){
-            console.error(err);
-            return "error_in_connect_to_db";
-          }
-
-          db.model('User')
-            .getAuthenticated("ehe8888", "12345678", function(err, user){
-              expect(err).to.be.null;
-              expect(user).to.be.exist;
-              return;
-            });
-        });
+        expect(res.body.access_token).to.exist;
+        jwtToken = res.body;
       })
-      .end(function(err, res){
-        if (err) {
-          console.log(err);
-        }
-        done();
-      });
-  });
-})
+      .end(done);
+  })
+});
+
+//
+//
+// describe("Client Handler", function(){
+//   it("should success to create client when account name is valid", function(done){
+//     request(app)
+//       .post('/identity/clients')
+//       .set('X-Authub-Account', accountName)
+//       .set("Authorization", "Bearer " + jwtToken.access_token )
+//       .expect(201)
+//       .end(function(err, res){
+//         if (err) {
+//           console.log(err);
+//           return done(err);
+//         }
+//         console.log(res.body);
+//
+//         clientId = res.body.data._id;
+//         clientSecret = res.body.data.clientSecretClearText;
+//
+//         done();
+//       });
+//   });
+//
+//
+//   it("should success to get new token with refresh_token granty type", function(done){
+//     var data = {
+//       refresh_token: jwtToken.refresh_token,
+//       grant_type: 'refresh_token'
+//     }
+//     request(app)
+//       .post('/identity/oauth2/token')
+//       .set('X-Authub-Account', accountName)
+//       .send(data)
+//       .expect(200)
+//       .end(function(err, res){
+//         if (err) {
+//           return done(err);
+//         }
+//
+//         console.log(res.body);
+//
+//         jwtToken = res.body;
+//
+//         done();
+//       });
+//   });
+// });
