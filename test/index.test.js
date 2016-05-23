@@ -224,6 +224,52 @@ describe("Client授权体系-WEB API层", function(){
       .end(done);
   })
 
+  var veri_code;
+  var vericode_token;
+
+
+  it("成功获得Verification Code", function(done){
+    var data = { identity: 'lei.he@aivics.com' , veri_type: 'email', target_url: "/accounts/activate" };
+    request(app)
+      .post('/identity/vericode/code')
+      .send( data )
+      .expect(201)
+      .expect(function(res){
+        veri_code = res.body.veri_code;
+        console.log("code: ", veri_code);
+        if( res.body.success !== true ) throw new Error('invalid_response');
+        if( process.env.NODE_ENV === 'development' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+      })
+      .end(done);
+  });
+
+  it('通过CODE成功换取TOKEN', function(done){
+    var data = { identity: 'lei.he@aivics.com', veri_code: veri_code };
+    request(app)
+      .post('/identity/vericode/validate')
+      .send( data )
+      .expect(201)
+      .end(function(err, res){
+        if (err) return done(err);
+        vericode_token = res.body.vericode_token;
+        console.log(vericode_token);
+        done();
+      });
+  });
+
+  it("成功激活Admin Account", function(done){
+    request(app)
+      .get('/identity/accounts/activate')
+      .set('X-Authub-Account', accountName)
+      .send({ vericode_token: vericode_token })
+      .expect(200)
+      .end(function(err, res){
+        console.error(err);
+
+        done(err);
+      });
+  });
+
   it("应该成功通过新注册的账号的Admin用户名和密码换取AccessToken", function(done){
     request(app)
       .post('/identity/oauth2admin/token')
@@ -281,8 +327,7 @@ describe("Client授权体系-WEB API层", function(){
         email: 'lei.he@aivics.com',
         staff: 'S001',
         firstName: 'Lei',
-        lastName: 'He',
-        activated: true
+        lastName: 'He'
       })
       .expect(201)
       .expect(function(res){
@@ -291,8 +336,46 @@ describe("Client授权体系-WEB API层", function(){
       .end(done);
   })
 
+  it("获得激活新用户的CODE", function(done){
+    var data = { identity: 'lei.he@aivics.com' , veri_type: 'email', target_url: "/users/activate" };
+    request(app)
+      .post('/identity/vericode/code')
+      .send( data )
+      .expect(201)
+      .expect(function(res){
+        veri_code = res.body.veri_code;
+        console.log("code: ", veri_code);
+        if( res.body.success !== true ) throw new Error('invalid_response');
+        if( process.env.NODE_ENV === 'development' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+      })
+      .end(done);
+  });
 
+  it('通过CODE成功换取激活新用户的TOKEN', function(done){
+    var data = { identity: 'lei.he@aivics.com', veri_code: veri_code };
+    request(app)
+      .post('/identity/vericode/validate')
+      .send( data )
+      .expect(201)
+      .end(function(err, res){
+        if (err) return done(err);
+        vericode_token = res.body.vericode_token;
+        console.log(vericode_token);
+        done();
+      });
+  });
 
+  it("成功激活普通用户User Account", function(done){
+    request(app)
+      .get('/identity/users/activate')
+      .set('X-Authub-Account', accountName)
+      .send({ vericode_token: vericode_token })
+      .expect(200)
+      .end(function(err, res){
+        console.error(err);
+        done(err);
+      });
+  });
 
   it("通过新用户的用户名和密码可以等到用户的AccessToken", function(done){
     request(app)
@@ -311,6 +394,8 @@ describe("Client授权体系-WEB API层", function(){
       .end(done);
   })
 });
+
+
 
 //
 //
