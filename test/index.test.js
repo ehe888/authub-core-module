@@ -9,6 +9,8 @@ let request = require('supertest')
   , app     = express()
   , shortid = require('shortid')
   , randomstring 	= require("randomstring")
+  , path = require("path")
+  , fs = require("fs")
   , jwt = require("jsonwebtoken");
 
 /**
@@ -20,10 +22,12 @@ let connect = require('mongodb').connect;
 var dbHost = process.env.MONGO_HOST || 'localhost';
 
 
-
 let accountName = "aivics";
 let clientId = "";
 let clientSecret = "";
+
+var clientKey = fs.readFileSync(path.join(__dirname, '.', 'config', 'client.key'), 'ascii');
+
 
 app.use(cookieParser());
 app.use(bodyParser());
@@ -32,7 +36,8 @@ let identity = express();
 app.use("/identity", identity);
 
 require("../lib")(identity, {
-  mongodb: { db: "authub_master" }
+  mongodb: { db: "authub_master" },
+  clientKey: clientKey
 });
 
 let jwtToken;
@@ -152,7 +157,7 @@ describe("OAuth2 core", function(){
         return done(err);
       })
     })
-  })
+  });
 
   it("验证Master Client的ID和密码", function(done){
     dbs.connectToMaster(function(err, db){
@@ -177,25 +182,27 @@ describe("OAuth2 core", function(){
 
 describe("Client授权体系-WEB API层", function(){
   var jwtToken;
+  var masterClientJwtToken;
 
-  it("should success to get token using client_credential granty type", function(done){
+  it("Master Client通过client_credential方式获得AccessToken", function(done){
     var data = {
       client_id: masterClient.id,
       client_secret: masterClient.secret,
       grant_type: 'client_credential'
     }
     request(app)
-      .post('/identity/oauth2/token')
+      .post('/identity/oauth2admin/token')
       .set('X-Authub-Account', masterAccount.name)
       .send(data)
       .expect(200)
       .end(function(err, res){
+        console.error(err);
         if (err) {
           return done(err);
         }
 
         console.log(res.body);
-        jwtToken = res.body;
+        masterClientJwtToken = res.body;
 
         done();
       });
@@ -205,7 +212,7 @@ describe("Client授权体系-WEB API层", function(){
     request(app)
       .post('/identity/register')
       .set('X-Authub-Account', masterAccount.name)
-      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .set("Authorization", "Bearer " + masterClientJwtToken.access_token )
       .send({
           name: "aivics",
           fullname: "猎户座网络科技有限公司",
@@ -287,7 +294,7 @@ describe("Client授权体系-WEB API层", function(){
       .end(done);
   })
 
-  it("通过RefreshToken换取新的AccessToken", function(done){
+  it("通过账号密码换得的RefreshToken换取新的AccessToken", function(done){
     request(app)
       .post('/identity/oauth2admin/token')
       .set('X-Authub-Account', "aivics")
@@ -314,6 +321,48 @@ describe("Client授权体系-WEB API层", function(){
       .expect(403)
       .end(done);
   })
+
+  // var newClient;
+  //
+  // it("通过Admin账号可以创建新Client", function(done){
+  //   request(app)
+  //     .post('/identity/clients')
+  //     .set('X-Authub-Account', "aivics")
+  //     .set("Authorization", "Bearer " + jwtToken.access_token )
+  //     .send({})
+  //     .expect(201)
+  //     .expect(function(res){
+  //       expect(res.body.data).to.exist;
+  //       newClient = res.body;
+  //       console.log(newClient);
+  //
+  //     })
+  //     .end(done);
+  // })
+  //
+  // it("通过新建的客户Client可以获得AccessToken", function(done){
+  //   var data = {
+  //     client_id: newClient._id,
+  //     client_secret: newClient.clearText,
+  //     grant_type: 'client_credential'
+  //   }
+  //   request(app)
+  //     .post('/identity/oauth2/token')
+  //     .set('X-Authub-Account', "aivics")
+  //     .send(data)
+  //     .expect(200)
+  //     .end(function(err, res){
+  //       if (err) {
+  //         return done(err);
+  //       }
+  //
+  //       console.log(res.body);
+  //       jwtToken = res.body;
+  //
+  //       done();
+  //     });
+  // });
+
 
   it("通过Admin账号可以创建新用户", function(done){
     request(app)
@@ -393,54 +442,22 @@ describe("Client授权体系-WEB API层", function(){
       })
       .end(done);
   })
+
+  it("通过MasterClientToken可以得到某个账号的Config配置信息", function(done){
+
+    request(app)
+      .get('/identity/accounts/config')
+      .set('X-Authub-Account', "authub_master")
+      .set("Authorization", "Bearer " + masterClientJwtToken.access_token )
+      .query({
+        account: "aivics"
+      })
+      .expect(200)
+      .expect(function(res){
+        console.log(res.body);
+        expect(res.body.data.accessToken).to.exist;
+      })
+      .end(done);
+
+  });
 });
-
-
-
-//
-//
-// describe("Client Handler", function(){
-//   it("should success to create client when account name is valid", function(done){
-//     request(app)
-//       .post('/identity/clients')
-//       .set('X-Authub-Account', accountName)
-//       .set("Authorization", "Bearer " + jwtToken.access_token )
-//       .expect(201)
-//       .end(function(err, res){
-//         if (err) {
-//           console.log(err);
-//           return done(err);
-//         }
-//         console.log(res.body);
-//
-//         clientId = res.body.data._id;
-//         clientSecret = res.body.data.clientSecretClearText;
-//
-//         done();
-//       });
-//   });
-//
-//
-//   it("should success to get new token with refresh_token granty type", function(done){
-//     var data = {
-//       refresh_token: jwtToken.refresh_token,
-//       grant_type: 'refresh_token'
-//     }
-//     request(app)
-//       .post('/identity/oauth2/token')
-//       .set('X-Authub-Account', accountName)
-//       .send(data)
-//       .expect(200)
-//       .end(function(err, res){
-//         if (err) {
-//           return done(err);
-//         }
-//
-//         console.log(res.body);
-//
-//         jwtToken = res.body;
-//
-//         done();
-//       });
-//   });
-// });
