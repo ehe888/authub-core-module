@@ -517,7 +517,7 @@ describe("普通账号的管理员账号", function(){
   it("通过普通账号的Admin账号可以创建新Client", function(done){
     request(app)
       .post('/identity/clients')
-      .set('X-Authub-Account', "authub_master")
+      .set('X-Authub-Account', "aivics")
       .set("Authorization", "Bearer " + jwtToken.access_token )
       .send({})
       .expect(201)
