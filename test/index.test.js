@@ -91,6 +91,7 @@ describe("OAuth2 core", function(){
         email: 'lei.he@fastccm.com',
         fullname: "上海希希麦科技有限公司",
         lastName: "何",
+        activated: true,
         accessToken: {
           secret: randomstring.generate(32)
         },
@@ -176,6 +177,46 @@ describe("OAuth2 core", function(){
         return done(err);
       })
     })
+  })
+});
+
+describe("Master管理员账号", function(){
+
+  var jwtToken;
+
+  it("应该成功通过Master管理员账号的Admin用户名和密码换取AccessToken", function(done){
+    request(app)
+      .post('/identity/oauth2admin/token')
+      .set('X-Authub-Account', "authub_master")
+      .send({
+          username: 'admin',
+          password: 'abc123456',
+          grant_type: 'password'
+      })
+      .expect(200)
+      .expect(function(res){
+        expect(res.body.access_token).to.exist;
+        jwtToken = res.body;
+      })
+      .end(done);
+  })
+
+
+
+  it("通过Admin账号可以创建新Client", function(done){
+    request(app)
+      .post('/identity/clients')
+      .set('X-Authub-Account', "authub_master")
+      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .send({})
+      .expect(201)
+      .expect(function(res){
+        expect(res.body.data).to.exist;
+        var newClient = res.body;
+        console.log(newClient);
+
+      })
+      .end(done);
   })
 });
 
@@ -324,21 +365,7 @@ describe("Client授权体系-WEB API层", function(){
 
   // var newClient;
   //
-  // it("通过Admin账号可以创建新Client", function(done){
-  //   request(app)
-  //     .post('/identity/clients')
-  //     .set('X-Authub-Account', "aivics")
-  //     .set("Authorization", "Bearer " + jwtToken.access_token )
-  //     .send({})
-  //     .expect(201)
-  //     .expect(function(res){
-  //       expect(res.body.data).to.exist;
-  //       newClient = res.body;
-  //       console.log(newClient);
-  //
-  //     })
-  //     .end(done);
-  // })
+
   //
   // it("通过新建的客户Client可以获得AccessToken", function(done){
   //   var data = {
@@ -461,3 +488,46 @@ describe("Client授权体系-WEB API层", function(){
 
   });
 });
+
+
+
+describe("普通账号的管理员账号", function(){
+
+  var jwtToken;
+
+  it("应该成功通过管理员账号和密码换取AccessToken", function(done){
+    request(app)
+      .post('/identity/oauth2admin/token')
+      .set('X-Authub-Account', "authub_master")
+      .send({
+          username: 'aivics_admin',
+          password: 'abc123456',
+          grant_type: 'password'
+      })
+      .expect(200)
+      .expect(function(res){
+        expect(res.body.access_token).to.exist;
+        jwtToken = res.body;
+      })
+      .end(done);
+  })
+
+
+
+  it("通过普通账号的Admin账号可以创建新Client", function(done){
+    request(app)
+      .post('/identity/clients')
+      .set('X-Authub-Account', "authub_master")
+      .set("Authorization", "Bearer " + jwtToken.access_token )
+      .send({})
+      .expect(201)
+      .expect(function(res){
+        expect(res.body.data).to.exist;
+        expect(res.body.data.account.name).to.equal("aivics");
+        var newClient = res.body;
+        console.log(newClient);
+
+      })
+      .end(done);
+  })
+})
