@@ -470,6 +470,40 @@ describe("Client授权体系-WEB API层", function(){
       .end(done);
   })
 
+  it("重设密码", function(done){
+    request(app)
+      .post('/identity/users/reset_password')
+      .set('X-Authub-Account', "aivics")
+      .set('Authorization', "Bearer " + jwtToken.access_token)
+      .send({
+          old_password: '123456',
+          new_password: 'Abc123456'
+      })
+      .expect(200)
+      .expect(function(res){
+        expect(res.body.success).to.be.true;
+
+        request(app)
+          .post('/identity/oauth2/token')
+          .set('X-Authub-Account', "aivics")
+          .send({
+              username: 'ehe8888',
+              password: 'Abc123456',
+              grant_type: 'password'
+          })
+          .expect(200)
+          .expect(function(res){
+            console.log(res.body)
+            expect(res.body.access_token).to.exist;
+            jwtToken = res.body;
+          })
+          .end(done);
+      })
+      .end(function(err){
+        console.log("complete")
+      });
+  })
+
   it("通过MasterClientToken可以得到某个账号的Config配置信息", function(done){
 
     request(app)
