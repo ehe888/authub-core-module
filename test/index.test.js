@@ -564,4 +564,40 @@ describe("普通账号的管理员账号", function(){
       })
       .end(done);
   })
+
+  it("Admin账号重置密码", function(done){
+    request(app)
+      .post('/identity/users/reset_password')
+      .set('X-Authub-Account', "aivics")
+      .set('Authorization', "Bearer " + jwtToken.access_token)
+      .send({
+          new_password: 'Abc123456',
+          isAdmin: true,
+      })
+      .expect(200)
+      .expect(function(res){
+        expect(res.body.success).to.be.true;
+
+        request(app)
+          .post('/identity/oauth2/token')
+          .set('X-Authub-Account', "aivics")
+          .send({
+              username: 'ehe8888',
+              password: 'Abc123456',
+              grant_type: 'password'
+          })
+          .expect(200)
+          .expect(function(res){
+            console.log(res.body)
+            expect(res.body.access_token).to.exist;
+            jwtToken = res.body;
+          })
+          .end(done);
+      })
+      .end(function(err){
+        console.log("complete")
+      });
+  })
+
+
 })
