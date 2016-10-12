@@ -571,8 +571,8 @@ describe("普通账号的管理员账号", function(){
       .set('X-Authub-Account', "aivics")
       .set('Authorization', "Bearer " + jwtToken.access_token)
       .send({
-          username: '关羽',
-          new_password: 'Abc123456',
+          username: 'ehe8888',
+          new_password: '123456',
           isAdmin: true,
       })
       .expect(200)
@@ -583,8 +583,8 @@ describe("普通账号的管理员账号", function(){
           .post('/identity/oauth2/token')
           .set('X-Authub-Account', "aivics")
           .send({
-              username: '关羽',
-              password: 'Abc123456',
+              username: 'ehe8888',
+              password: '123456',
               grant_type: 'password'
           })
           .expect(200)
