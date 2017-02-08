@@ -5,7 +5,7 @@
   "main": "./lib/index.js",
   "scripts": {
     "pretest": "npm install",
-    "test": "mocha --require should --reporter spec --check-leaks"
+    "test": "mocha --require should --reporter spec --check-leaks --trace-warnings"
   },
   "repository": {
     "type": "git",

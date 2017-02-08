@@ -106,7 +106,6 @@ describe("OAuth2 core", function(){
         done();
       })
       .catch(function(err){
-        console.error(err);
         return done(err);
       })
     })
@@ -130,12 +129,10 @@ describe("OAuth2 core", function(){
         }
       })
       .then(function(account){
-
+        if(account) done(new Error("create duplicated account"))
       })
       .catch(function(err){
-        console.error(err);
-        expect(err).to.exist;
-        done();
+        done()
       })
     })
   })
@@ -195,10 +192,15 @@ describe("Master管理员账号", function(){
       })
       .expect(200)
       .expect(function(res){
-        expect(res.body.access_token).to.exist;
+        if(!res.body.access_token) throw new Error("failed to get access_token");
         jwtToken = res.body;
       })
-      .end(done);
+      .end(function(err, res){
+        if(err) {
+          return done(err);
+        }
+        return done();
+      })
   })
 
 
@@ -211,10 +213,7 @@ describe("Master管理员账号", function(){
       .send({})
       .expect(201)
       .expect(function(res){
-        expect(res.body.data).to.exist;
-        var newClient = res.body;
-        console.log(newClient);
-
+        if(!res.body.data) throw new Error("failed to create client");
       })
       .end(done);
   })
@@ -236,15 +235,11 @@ describe("Client授权体系-WEB API层", function(){
       .set('X-Authub-Account', masterAccount.name)
       .send(data)
       .expect(200)
-      .end(function(err, res){
-        console.error(err);
-        if (err) {
-          return done(err);
-        }
-
-        console.log(res.body);
+      .expect(function(res){
         masterClientJwtToken = res.body;
-
+      })
+      .end(function(err, res){
+        if(err) return done(err);
         done();
       });
   });
@@ -266,10 +261,14 @@ describe("Client授权体系-WEB API层", function(){
       })
       .expect(201)
       .expect(function(res){
-        if( res.body.success !== true ) return "request_failed";
-        if( res.body.name !== "aivics" ) return "incorrect_account_name";
+        if( res.body.success !== true )  throw new Error("request_failed");
+        if( res.body.name !== "aivics" ) throw new Error("incorrect_account_name");
       })
-      .end(done);
+      .end(function(err, res){
+        if(err) return done(err);
+
+        done();
+      });
   })
 
   var veri_code;
@@ -286,9 +285,14 @@ describe("Client授权体系-WEB API层", function(){
         veri_code = res.body.veri_code;
         console.log("code: ", veri_code);
         if( res.body.success !== true ) throw new Error('invalid_response');
-        if( process.env.NODE_ENV === 'development' && !res.body.veri_code ) throw new Error('invalid_code_returned');
+        if( process.env.NODE_ENV === 'development' && !res.body.veri_code )
+          throw new Error('invalid_code_returned');
       })
-      .end(done);
+      .end(function(err, res){
+        if(err) return done(err);
+
+        done();
+      });
   });
 
   it('通过CODE成功换取TOKEN', function(done){
@@ -312,9 +316,8 @@ describe("Client授权体系-WEB API层", function(){
       .send({ vericode_token: vericode_token })
       .expect(200)
       .end(function(err, res){
-        console.error(err);
-
-        done(err);
+        if(err) return done(err);
+        done();
       });
   });
 
@@ -327,12 +330,14 @@ describe("Client授权体系-WEB API层", function(){
           password: 'abc123456',
           grant_type: 'password'
       })
-      .expect(200)
       .expect(function(res){
-        expect(res.body.access_token).to.exist;
+        if(!res.body.access_token) throw new Error("no access token retrieved")
         jwtToken = res.body;
       })
-      .end(done);
+      .end(function(err, res){
+        if(err) return done(err);
+        done();
+      });
   })
 
   it("通过账号密码换得的RefreshToken换取新的AccessToken", function(done){
@@ -344,11 +349,14 @@ describe("Client授权体系-WEB API层", function(){
         grant_type: 'refresh_token'
       })
       .expect(200)
-      .expect(function(res){
-        expect(res.body.access_token).to.exist;
+      .end(function(err, res){
+        if(err) return done(err);
+
+        if(!res.body.access_token) return done(new Error("failed to get access token"));
+
         jwtToken = res.body;
-      })
-      .end(done);
+        done()
+      });
   })
 
   it("Account名称不匹配，则不能通过RefreshToken换取新的AccessToken", function(done){
@@ -406,10 +414,11 @@ describe("Client授权体系-WEB API层", function(){
         lastName: 'He'
       })
       .expect(201)
-      .expect(function(res){
-        expect(res.body.data.username).to.equal("ehe8888")
-      })
-      .end(done);
+      .end(function(err, res){
+        if(err) return done(err);
+        if("ehe8888" !== res.body.data.username) return done(new Error("username not correct"))
+        done();
+      });
   })
 
   it("获得激活新用户的CODE", function(done){
@@ -577,7 +586,7 @@ describe("普通账号的管理员账号", function(){
       })
       .expect(200)
       .expect(function(res){
-        expect(res.body.success).to.be.true;
+        if(!res.body.success) throw new Error("failed to reset password");
 
         request(app)
           .post('/identity/oauth2/token')
@@ -589,14 +598,14 @@ describe("普通账号的管理员账号", function(){
           })
           .expect(200)
           .expect(function(res){
-            console.log(res.body)
-            expect(res.body.access_token).to.exist;
+            if(!res.body.access_token) throw new Error("failed to get token");
             jwtToken = res.body;
-          })
-          .end(done);
+          });
       })
       .end(function(err){
-        console.log("complete")
+        if(err) return done(err);
+
+        done()
       });
   })
 
