@@ -1,6 +1,6 @@
 {
   "name": "aivics-authub-core-module",
-  "version": "0.0.35",
+  "version": "0.0.36",
   "description": "Authub core module work for expressjs",
   "main": "./lib/index.js",
   "scripts": {
@@ -38,7 +38,9 @@
     "sms-gateway-huyi": "^1.0.1",
     "url-join": "^1.0.0",
     "uuid": "^2.0.1",
-    "validator": "^5.2.0"
+    "validator": "^5.2.0",
+    "bcrypt": "^0.8.5",
+    "bcrypt-as-promised": "^1.1.0",
   },
   "devDependencies": {
     "chai": "^3.5.0",
