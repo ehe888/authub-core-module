@@ -79,10 +79,11 @@ describe("OAuth2 core", function(){
   });
 
   /**
-   * 系统初始化时需要执行的一次性操作, 系统初始化后有一个 MasterDB，一个MasterClient
+   * 系统初始化时需要执行的一次性操作,
+   * 系统初始化后有一个 MasterDB，一个MasterClient
    * MasterClient可以进行后续的注册帐号等操作
-   */ 
-  it("成功创建Master Account", function(done){
+   */
+  it("创建Master Account", function(done){
     dbs.connectToMaster(function(err, db){
       return db.model("Account").create({
         name: dbOptions.masterDb,
