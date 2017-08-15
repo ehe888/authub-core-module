@@ -1,5 +1,6 @@
 // User Model Unit test
 const { should, expect }  = require('chai');
+const masterAccount = require("./env").masterAccount;
 
 const dbs = require("./env").dbs;
 
@@ -130,4 +131,41 @@ describe('User', () => {
     })
   })
 
+  describe('Authorize to account', () => {
+    it('Authorize', (done) => {
+      dbs.connectToMaster((err, db) => {
+        db.model('User')
+          .findOne({ username: userTest1.username })
+          .then((user) => {
+            return user.authorize(masterAccount.name);
+          })
+          .then((user, numAffected) => {
+            expect(user).to.exist;
+            expect(user.authorized.includes(masterAccount.name)).to.be.true;
+            done();
+          })
+          .catch( err => {
+            done(err);
+          })
+      })
+    })
+
+    it('Unauthorize', (done) => {
+      dbs.connectToMaster((err, db) => {
+        db.model('User')
+          .findOne({ username: userTest1.username })
+          .then((user) => {
+            return user.unauthorize(masterAccount.name);
+          })
+          .then((user, numAffected) => {
+            expect(user).to.exist;
+            expect(user.authorized.includes(masterAccount.name)).to.be.false;
+            done();
+          })
+          .catch( err => {
+            done(err);
+          })
+      })
+    })
+  })
 })
